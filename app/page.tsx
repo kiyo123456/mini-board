@@ -1,69 +1,171 @@
+// app/page.tsx
+import Link from "next/link";
+import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
+import { deletePost, toggleLike } from "./actions";
+import { logout } from "./login/actions";
+import { PostForm } from "./post-form";
 import Image from "next/image";
+import { RealtimeRefresher } from "./realtime-refresher";
+
+// ログイン状態を表示する部品
+async function UserMenu() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const email = data?.claims?.email;
+
+  if (!email) {
+    return (
+      <Link href="/login" className="text-sm underline">
+        ログイン
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="text-zinc-500">{email}</span>
+      <form action={logout}>
+        <button type="submit" className="underline">
+          ログアウト
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ログインしている人にだけ投稿フォームを出す部品
+async function PostFormArea() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+
+  if (!data?.claims) {
+    return (
+      <p className="mt-6 text-zinc-500">
+        投稿するには
+        <Link href="/login" className="underline">
+          ログイン
+        </Link>
+        してください。
+      </p>
+    );
+  }
+  return <PostForm />;
+}
+
+// 投稿の一覧を取得して表示する部品
+async function PostList() {
+  const supabase = await createClient();
+
+  // ログインしている人の ID（ログインしていなければ undefined）
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const myId = claimsData?.claims?.sub;
+
+  const { data: posts, error } = await supabase
+    .from("posts")
+    .select("id, content, created_at, user_id, image_path,  like_count")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return (
+      <p className="mt-6 text-red-600">
+        読み込みに失敗しました：{error.message}
+      </p>
+    );
+  }
+
+  const likedIds = new Set<number>();
+  if (myId) {
+    const { data: likes } = await supabase
+      .from("likes")
+      .select("post_id")
+      .eq("user_id", myId);
+    likes?.forEach((like) => likedIds.add(like.post_id));
+  }
+
+  if (posts.length === 0) {
+    return <p className="mt-6 text-zinc-500">まだ投稿がありません。</p>;
+  }
+
+  return (
+    <ul className="mt-6 space-y-3">
+      {posts.map((post) => (
+        <li key={post.id} className="rounded border border-zinc-200 p-4">
+          <p className="whitespace-pre-wrap">{post.content}</p>
+          {post.image_path && (
+            <Image
+              src={
+                supabase.storage
+                  .from("post-images")
+                  .getPublicUrl(post.image_path).data.publicUrl
+              }
+              alt=""
+              width={640}
+              height={480}
+              className="mt-3 h-auto w-full rounded"
+            />
+          )}
+          <div className="mt-2 flex items-center justify-between text-sm text-zinc-500">
+            <span className="flex items-center gap-3">
+              <span>
+                {new Date(post.created_at).toLocaleString("ja-JP", {
+                  timeZone: "Asia/Tokyo",
+                })}
+              </span>
+              {myId ? (
+                <form
+                  action={toggleLike.bind(null, post.id, likedIds.has(post.id))}
+                >
+                  <button
+                    type="submit"
+                    className={
+                      likedIds.has(post.id)
+                        ? "text-pink-600"
+                        : "hover:text-pink-600"
+                    }
+                  >
+                    {likedIds.has(post.id) ? "♥" : "♡"} {post.like_count}
+                  </button>
+                </form>
+              ) : (
+                <span>♡ {post.like_count}</span>
+              )}
+            </span>
+            {post.user_id === myId && (
+              <span className="flex items-center gap-3">
+                <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs">
+                  あなたの投稿
+                </span>
+                <form action={deletePost.bind(null, post.id)}>
+                  <button type="submit" className="hover:text-red-600">
+                    削除
+                  </button>
+                </form>
+              </span>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto max-w-xl p-8">
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">ミニ掲示板</h1>
+        <Suspense fallback={null}>
+          <UserMenu />
+        </Suspense>
+      </header>
+      <Suspense fallback={null}>
+        <PostFormArea />
+      </Suspense>
+      <Suspense fallback={<p className="mt-6 text-zinc-500">読み込み中…</p>}>
+        <PostList />
+      </Suspense>
+      <RealtimeRefresher />
+    </main>
   );
 }
