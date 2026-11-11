@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { deletePost, toggleLike } from "./actions";
+import { deletePost } from "./actions";
+import { LikeButton } from "./like-button";
 import { logout } from "./login/actions";
 import { PostForm } from "./post-form";
 import Image from "next/image";
@@ -113,20 +114,11 @@ async function PostList() {
                 })}
               </span>
               {myId ? (
-                <form
-                  action={toggleLike.bind(null, post.id, likedIds.has(post.id))}
-                >
-                  <button
-                    type="submit"
-                    className={
-                      likedIds.has(post.id)
-                        ? "text-pink-600"
-                        : "hover:text-pink-600"
-                    }
-                  >
-                    {likedIds.has(post.id) ? "♥" : "♡"} {post.like_count}
-                  </button>
-                </form>
+                <LikeButton
+                  postId={post.id}
+                  liked={likedIds.has(post.id)}
+                  count={post.like_count}
+                />
               ) : (
                 <span>♡ {post.like_count}</span>
               )}
