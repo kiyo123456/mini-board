@@ -61,10 +61,16 @@ async function PostList() {
   const { data: claimsData } = await supabase.auth.getClaims();
   const myId = claimsData?.claims?.sub;
 
-  const { data: posts, error } = await supabase
-    .from("posts")
-    .select("id, content, created_at, user_id, image_path,  like_count")
-    .order("created_at", { ascending: false });
+  // 投稿の一覧と、自分がいいねした投稿は、互いに関係ないので同時に読む（待ち時間が1回分で済む）
+  const [{ data: posts, error }, { data: likes }] = await Promise.all([
+    supabase
+      .from("posts")
+      .select("id, content, created_at, user_id, image_path,  like_count")
+      .order("created_at", { ascending: false }),
+    myId
+      ? supabase.from("likes").select("post_id").eq("user_id", myId)
+      : Promise.resolve({ data: [] as { post_id: number }[] }),
+  ]);
 
   if (error) {
     return (
@@ -74,14 +80,8 @@ async function PostList() {
     );
   }
 
-  const likedIds = new Set<number>();
-  if (myId) {
-    const { data: likes } = await supabase
-      .from("likes")
-      .select("post_id")
-      .eq("user_id", myId);
-    likes?.forEach((like) => likedIds.add(like.post_id));
-  }
+  // 自分がいいねした投稿の ID（ログインしていなければ空）
+  const likedIds = new Set(likes?.map((like) => like.post_id));
 
   if (posts.length === 0) {
     return <p className="mt-6 text-zinc-500">まだ投稿がありません。</p>;
