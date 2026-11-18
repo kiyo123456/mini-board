@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "6mb",
     },
+    // 使っている Next.js に脆弱性が見つかったら、直った版への更新を知らせる（書かないときの初期値も "security"）
+    agentUpgrade: "security",
   },
   // next/image で表示してよい、外部の画像の場所
   images: {
