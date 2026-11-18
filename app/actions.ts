@@ -15,7 +15,7 @@ export type PostFormState = {
 
 // 投稿する
 export async function createPost(
-  prevState: PostFormState,
+  prevState: PostFormState, //フォームの前回の状態
   formData: FormData,
 ): Promise<PostFormState> {
   const content = String(formData.get("content") ?? "").trim();
@@ -28,6 +28,7 @@ export async function createPost(
     return { error: "本文は280文字以内にしてください", content };
   }
 
+  //supabaseにアクセスするためのクライアントを作成
   const supabase = await createClient();
 
   // ログインしているか確かめる（Server Action は誰でも呼べるので、必ずここで確かめる）

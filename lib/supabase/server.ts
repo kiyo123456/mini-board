@@ -18,6 +18,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // ログイン中のユーザーを見るための情報
       cookies: {
         getAll() {
           return cookieStore.getAll();

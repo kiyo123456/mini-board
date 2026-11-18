@@ -63,10 +63,12 @@ async function PostList() {
   const myId = claimsData?.claims?.sub;
 
   // 投稿の一覧と、自分がいいねした投稿は、互いに関係ないので同時に読む（待ち時間が1回分で済む）
+  // await Promise.all([処理A, 処理B])
+  // → [Aの結果, Bの結果]   ← 必ずこの順番
   const [{ data: posts, error }, { data: likes }] = await Promise.all([
     supabase
       .from("posts")
-      .select("id, content, created_at, user_id, image_path,  like_count")
+      .select("id, content, created_at, user_id, image_path, like_count")
       .order("created_at", { ascending: false }),
     myId
       ? supabase.from("likes").select("post_id").eq("user_id", myId)
@@ -87,7 +89,8 @@ async function PostList() {
   if (posts.length === 0) {
     return <p className="mt-6 text-zinc-500">まだ投稿がありません。</p>;
   }
-
+  
+  // postlistの最終的な描画
   return (
     <ul className="mt-6 space-y-3">
       {posts.map((post) => (
@@ -142,6 +145,7 @@ async function PostList() {
   );
 }
 
+// 上記三つの関数の結果をまとめて描画
 export default function Home() {
   return (
     <main className="mx-auto max-w-xl p-8">
